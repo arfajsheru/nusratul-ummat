@@ -7,7 +7,7 @@ interface createDonationPayload {
   vendorId: number;
   amount: number;
   donationType: DonationType;
-  createdBy?: number
+  createdBy?: number;
 }
 
 export const createManualDonationService = async (
@@ -37,4 +37,82 @@ export const createManualDonationService = async (
   });
 
   return donation;
+};
+
+export const getVendorMonthlyStatsService = async (
+  vendorId: number,
+  month: number,
+  year: number
+) => {
+  if (!vendorId) {
+    throw new AppError("VendorId is required", 400);
+  }
+
+  const startOfMonth = new Date(year, month - 1, 1);
+  const endOfMonth = new Date(year, month, 0);
+
+  // 1️⃣ total users
+  const totalUsers = await prisma.user.count({
+    where: { vendorId },
+  });
+
+  // 2️⃣ monthly donations
+  const donations = await prisma.donation.findMany({
+    where: {
+      vendorId,
+      status: "SUCCESS",
+      donationDate: {
+        gte: startOfMonth,
+        lte: endOfMonth,
+      },
+    },
+    select: {
+      amount: true,
+      donationType: true,
+      userId: true,
+    },
+  });
+
+  // 3️⃣ total donation
+  const monthTotal = donations.reduce((sum, d) => sum + d.amount, 0);
+
+  // 4️⃣ type wise calculation
+  const monthZakaat = donations
+    .filter((d) => d.donationType === "ZAKAAT")
+    .reduce((sum, d) => sum + d.amount, 0);
+
+  const monthLillah = donations
+    .filter((d) => d.donationType === "LILLAH")
+    .reduce((sum, d) => sum + d.amount, 0);
+
+  const monthSadaqah = donations
+    .filter((d) => d.donationType === "SADAQAH")
+    .reduce((sum, d) => sum + d.amount, 0);
+
+  const monthGeneral = donations
+    .filter((d) => d.donationType === "GENERAL")
+    .reduce((sum, d) => sum + d.amount, 0);
+
+  // 5️⃣ unique paid users
+  const paidUsersSet = new Set(donations.map((d) => d.userId));
+
+  const totalPaidUsers = paidUsersSet.size;
+
+  // 6️⃣ pending users
+  const totalPendingUsers = totalUsers - totalPaidUsers;
+
+  return {
+    month,
+    year,
+
+    monthTotal,
+    monthZakaat,
+    monthLillah,
+    monthSadaqah,
+    monthGeneral,
+
+    totalUsers,
+    totalPaidUsers,
+    totalPendingUsers,
+  };
 };

@@ -88,7 +88,7 @@ model Donation {
 
   donationDate DateTime @default(now())
 
- recordedBy Int? 
+  recordedBy Int? 
   status DonationStatus @default(PENDING)
 
   createdAt DateTime @default(now())

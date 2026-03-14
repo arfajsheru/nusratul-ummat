@@ -2,10 +2,12 @@ import type { Request, Response } from "express";
 import {
   createVendorService,
   getAllVendorUsersService,
+  getPendingVendorMembersService,
   getVendorByIdService,
 } from "../services/vendor.service.js";
 import { sendSuccess } from "../utils/apiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import { AppError } from "../utils/apperror.js";
 
 export const createVendorController = asyncHandler(
   async (req: Request, res: Response) => {
@@ -38,12 +40,14 @@ export const getAllVendorUsersController = asyncHandler(
   async (req: Request, res: Response) => {
 
     const { vendorId } = req.params;
-    const { month, year } = req.query;
+    const { month, year, status, search } = req.query;
 
     const users = await getAllVendorUsersService(
       Number(vendorId),
       Number(month),
-      Number(year)
+      Number(year),
+      status as "pending" | "paid" | "all",
+      search as string
     );
 
     return sendSuccess({
@@ -55,3 +59,28 @@ export const getAllVendorUsersController = asyncHandler(
 );
 
 
+export const getPendingVendorMembersController = asyncHandler(
+  async (req: Request, res: Response) => {
+    const vendorId = Number(req.params.vendorId);
+    const month = Number(req.query.month);
+    const year = Number(req.query.year);
+    const search = (req.query.search as string) || "";
+
+    if (!month || !year) {
+      throw new AppError("Month and Year are required", 400);
+    }
+
+    const result = await getPendingVendorMembersService(
+      vendorId,
+      month,
+      year,
+      search
+    );
+
+    return sendSuccess({
+      res,
+      message: "Pending members fetched successfully",
+      data: result,
+    });
+  }
+);

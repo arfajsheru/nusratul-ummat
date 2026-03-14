@@ -123,18 +123,37 @@ export const getAllVendorUsersService = async (
   vendorId: number,
   month: number,
   year: number,
+  status?: "pending" | "paid" | "all",
+  search?: string,
 ) => {
   if (!vendorId) {
     throw new AppError("VendorId is required", 400);
   }
 
-  const startOfMonth = new Date(year, month, 1);
-  const endOfMonth = new Date(year, month + 1, 0);
+  const startOfMonth = new Date(year, month - 1, 1);
+  const endOfMonth = new Date(year, month, 0);
 
   const users = await prisma.user.findMany({
     where: {
-      vendorId: vendorId,
+      vendorId,
+
+      ...(search && {
+        OR: [
+          {
+            fullname: {
+              contains: search,
+              mode: "insensitive",
+            },
+          },
+          {
+            phone: {
+              contains: search,
+            },
+          },
+        ],
+      }),
     },
+
     select: {
       id: true,
       fullname: true,
@@ -147,6 +166,7 @@ export const getAllVendorUsersService = async (
       },
       isActive: true,
       createdAt: true,
+
       donations: {
         where: {
           donationDate: {
@@ -159,6 +179,7 @@ export const getAllVendorUsersService = async (
         },
       },
     },
+
     orderBy: {
       createdAt: "desc",
     },
@@ -187,7 +208,90 @@ export const getAllVendorUsersService = async (
     };
   });
 
-  return usersWithPaymentStatus;
+  let filteredUsers = usersWithPaymentStatus;
+
+  if (status === "pending") {
+    filteredUsers = usersWithPaymentStatus.filter(
+      (u) => u.paymentStatus === "PENDING",
+    );
+  }
+
+  if (status === "paid") {
+    filteredUsers = usersWithPaymentStatus.filter(
+      (u) => u.paymentStatus === "SUCCESS",
+    );
+  }
+
+  return filteredUsers;
 };
 
+export const getPendingVendorMembersService = async (
+  vendorId: number,
+  month: number,
+  year: number,
+  search: string,
+) => {
+  if (!vendorId) {
+    throw new AppError("VendorId is required", 400);
+  }
 
+  const startOfMonth = new Date(year, month, 1);
+  const endOfMonth = new Date(year, month + 1, 0);
+
+  const users = await prisma.user.findMany({
+    where: {
+      vendorId,
+
+      ...(search && {
+        OR: [
+          {
+            fullname: {
+              contains: search,
+              mode: "insensitive",
+            },
+          },
+          {
+            phone: {
+              contains: search,
+            },
+          },
+        ],
+      }),
+    },
+
+    select: {
+      id: true,
+      fullname: true,
+      phone: true,
+
+      donations: {
+        where: {
+          donationDate: {
+            gte: startOfMonth,
+            lte: endOfMonth,
+          },
+        },
+        select: {
+          status: true,
+        },
+      },
+    },
+
+    orderBy: {
+      createdAt: "desc",
+    },
+  });
+
+  const pendingUsers = users
+    .filter(
+      (user) =>
+        !user.donations.some((donation) => donation.status === "SUCCESS"),
+    )
+    .map((user) => ({
+      id: user.id,
+      fullname: user.fullname,
+      phoneNumber: user.phone,
+    }));
+
+  return pendingUsers;
+};

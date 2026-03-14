@@ -6,7 +6,6 @@ import {
 } from "../services/vendor.service.js";
 import { sendSuccess } from "../utils/apiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
-import { AppError } from "../utils/apperror.js";
 
 export const createVendorController = asyncHandler(
   async (req: Request, res: Response) => {
@@ -54,3 +53,5 @@ export const getAllVendorUsersController = asyncHandler(
     });
   }
 );
+
+

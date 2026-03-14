@@ -38,6 +38,7 @@ export const createUserTypeService = async (
 };
 
 
+
 export const getAllUserTypesService = async () => {
   const userTypes = await prisma.userTypeMaster.findMany({
     orderBy: { id: "asc" },

@@ -1,18 +1,18 @@
-// import type { Request, Response } from "express";
-// import { createDonationService } from "../services/donation.service.js";
+import { createManualDonationService } from "../services/donation.service.js"
+import { sendSuccess } from "../utils/apiResponse.js"
+import { asyncHandler } from "../utils/asyncHandler.js"
+import type { Request, Response } from "express"
 
-// import { sendSuccess } from "../utils/apiResponse.js";
-// import { asyncHandler } from "../utils/asyncHandler.js";
 
-// export const createDonationController = asyncHandler(
-//   async (req: Request, res: Response) => {
-//     const result = await createDonationService(req.body);
+export const createManualDonationController = asyncHandler(
+  async (req: Request, res: Response) => {
 
-//     return sendSuccess({
-//       res,
-//       statusCode: 201,
-//       message: "Donation created successfully (Pending Payment)",
-//       data: result,
-//     });
-//   }
-// );
+    const result = await createManualDonationService(req.body)
+
+    return sendSuccess({
+      res,
+      message: "Donation added successfully",
+      data: result
+    })
+  }
+)

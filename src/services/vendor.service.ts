@@ -1,4 +1,5 @@
 import prisma from "../config/database.js";
+import type { DonationType } from "../generated/prisma/enums.js";
 import { AppError } from "../utils/apperror.js";
 
 interface CreateVendorInput {
@@ -107,7 +108,6 @@ export const getVendorByIdService = async (id: number) => {
     where: { id },
     include: {
       users: true,
-      campaigns: true,
       donations: true,
     },
   });
@@ -294,4 +294,116 @@ export const getPendingVendorMembersService = async (
     }));
 
   return pendingUsers;
+};
+
+export const getMonthlySummaryService = async (
+  vendorId: number,
+  month: number,
+  year: number,
+) => {
+  // Validation
+  if (!vendorId) {
+    throw new AppError("VendorId is required", 400);
+  }
+
+  if (!month) {
+    throw new AppError("Month is required", 400);
+  }
+
+  if (!year) {
+    throw new AppError("Year is required", 400);
+  }
+
+  if (month < 1 || month > 12) {
+    throw new AppError("Month must be between 1 and 12", 400);
+  }
+
+  // Date range
+  const startOfMonth = new Date(year, month - 1, 1);
+  const endOfMonth = new Date(year, month, 0);
+
+  // Get users
+  const users = await prisma.user.findMany({
+    where: { vendorId },
+    select: {
+      id: true,
+      fullname: true,
+    },
+  });
+
+  // Get donations
+  const donations = await prisma.donation.findMany({
+    where: {
+      vendorId,
+      donationDate: {
+        gte: startOfMonth,
+        lte: endOfMonth,
+      },
+    },
+    select: {
+      userId: true,
+      amount: true,
+      donationType: true,
+      status: true,
+    },
+  });
+
+  // Map payments
+  const donationMap = new Map<number, (typeof donations)[number]>();
+
+  console.log("Donations Map:", donationMap);
+  donations.forEach((d) => {
+    if (d.status === "SUCCESS") {
+      donationMap.set(d.userId, d);
+    }
+  });
+
+  console.log("donantions", donations);
+
+  // Members list
+  const members = users.map((user) => {
+    const donation = donationMap.get(user.id);
+
+    return {
+      id: user.id,
+      fullname: user.fullname,
+      donationType: donation?.donationType || null,
+      amount: donation?.amount || 0,
+      status: donation ? "PAID" : "PENDING",
+    };
+  });
+
+
+  console.log("Members with payment status:", members);
+
+  // Counts
+  const paidMembers = members.filter((m) => m.status === "PAID").length;
+  const pendingMembers = members.length - paidMembers;
+
+  // Category totals
+  const categoryTotals: Record<DonationType, number> = {
+    ZAKAAT: 0,
+    SADAQAH: 0,
+    LILLAH: 0,
+    GENERAL: 0,
+  };
+
+  donations.forEach((d) => {
+    if (d.status === "SUCCESS") {
+      categoryTotals[d.donationType] += d.amount;
+    }
+  });
+
+  // Total amount
+  const totalAmount = donations
+    .filter((d) => d.status === "SUCCESS")
+    .reduce((sum, d) => sum + d.amount, 0);
+
+  return {
+    totalAmount,
+    paidMembers,
+    pendingMembers,
+    categoryTotals,
+    members,
+  };
 };

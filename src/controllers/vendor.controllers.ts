@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import {
   createVendorService,
   getAllVendorUsersService,
+  getMonthlySummaryService,
   getPendingVendorMembersService,
   getVendorByIdService,
 } from "../services/vendor.service.js";
@@ -80,6 +81,33 @@ export const getPendingVendorMembersController = asyncHandler(
     return sendSuccess({
       res,
       message: "Pending members fetched successfully",
+      data: result,
+    });
+  }
+);
+
+
+
+export const getMonthlySummaryController = asyncHandler(
+  async (req: Request, res: Response) => {
+    const vendorId = Number(req.params.vendorId);
+    const month = Number(req.query.month);
+    const year = Number(req.query.year);
+
+    // Validation
+    if (!month || !year) {
+      throw new AppError("Month and Year are required", 400);
+    }
+
+    const result = await getMonthlySummaryService(
+      vendorId,
+      month,
+      year
+    );
+
+    return sendSuccess({
+      res,
+      message: "Monthly summary fetched successfully",
       data: result,
     });
   }
